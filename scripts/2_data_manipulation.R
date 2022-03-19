@@ -8,7 +8,10 @@ require(tidyverse)
 require(dplyr)
 require(data.table)
 require(rgdal)
+require(sp)
+require(rgeos)
 require(sf)
+require(googledrive)
 
 select <- dplyr::select
 
@@ -45,26 +48,26 @@ acadbuffer <- read_sf('data/acadbufferzone.shp')
 #------------------------------------------------#
 
 ##First remove a bunch of columns and filter to last 20 years to lessen the workload
-inat.all <- inat.all %>% 
+inat.all2 <- inat.all %>% 
   select(kingdom, phylum, class, order, family, genus, species, decimalLatitude, decimalLongitude, year) %>% 
   filter(year != 2000 & year != 2001 & year != 2022)
 
 
 ##Filter full dataset to records inside national parks
-#Create a spatial column 
-coordinates(inat.all) <- ~ decimalLongitude + decimalLatitude
-proj4string(inat.all) <- proj4string(nps.bounds)
+#Create a spatial points data frame by forming coords in the inat data
+coordinates(inat.all2) <- c("decimalLongitude", "decimalLatitude")
 
+#Match the CRS for both spatial dfs
+proj4string(inat.all2) <- CRS("+init=epsg:4326")
+proj4string(nps.bounds) <- CRS("+init=epsg:4326")
 
-#This is where the actual points live??
-# polygondata <- nps.bounds@polygons
-# test <- polygondata[[1]]
-# test2 <- test@Polygons
-# coords <- test2[[1]]@coords
+#Perform the over function to get obs inside the nps boundaries
+test <- over(inat.all2, nps.bounds, fn = NULL) 
 
-
-
-
+#Filter to get rid of the obs not inside the nps bounds
+inat.nps <- test %>% 
+  filter(!is.na(UNIT_NAME))
+  
 
 
 #------------------------------------------------#
@@ -124,7 +127,8 @@ filedate <- print(format(Sys.Date(), "%Y%m%d"))
 drive.output <- 'https://drive.google.com/drive/u/4/folders/1Iu0lkoy4FO2RzKXMxRTrZu35G4wGM-8c'
 
 #Write out final data for inat obs in all national parks
-
+#write_csv(inat.nps, paste('outputs/nps_inattotals_', filedate, '.csv', sep=''))
+#drive_upload('outputs/nps_inattotals_20220319.csv', path = as_id(drive.output))
 
 #Write out final data for inat obs in and around acadia
 #write_csv(acadia.totals, paste('outputs/acadia_inattotals_', filedate, '.csv', sep=''))
